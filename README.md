@@ -44,7 +44,11 @@ GitHub-Activity-Tracker/
 ├── index.html
 ├── README.md
 ├── script.js
-└── style.css
+├── style.css
+│
+└── screenshots/
+    ├── dashboard.png
+    └── repositories.png
 ```
 
 ## How to Run the Project
