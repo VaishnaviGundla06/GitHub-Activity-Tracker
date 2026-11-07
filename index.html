@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Github Activity Tracker</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <h1>GitHub Activity Tracker</h1>
+        <p>Explore GitHub profiles and developer activities in one place</p>
+        <h2>Search GitHub profile</h2>
+        <form id="searchForm">
+    <label for="username">GitHub Username:</label>
+
+    <input
+        type="text"
+        id="username"
+        name="username"
+        placeholder="Enter your GitHub username"
+        aria-describedby="message"
+        autocomplete="off"
+        required
+    >
+
+    <button type="submit">Search</button>
+</form>
+        <p id = "message"></p>
+        <div id="loadingSpinner" hidden>
+    <div class="spinner"></div>
+    <p>Fetching GitHub data...</p>
+</div>
+        <h2>Developer Statistics</h2>
+
+<div class="dashboard">
+
+    <div class="card">
+        <h3>Total Repositories</h3>
+        <p id = "repoCount">0</p>
+    </div>
+
+    <div class="card">
+        <h3>Followers</h3>
+        <p id="followerCount">0</p>
+    </div>
+
+    <div class="card">
+        <h3>Following</h3>
+        <p id="followingCount">0</p>
+    </div>
+
+    <div class="card">
+        <h3>Public Contributions</h3>
+        <p id="contributionCount">--</p>
+    </div>
+    <div class = "card">
+        <h3>Public Gists</h3>
+        <p id="gistCount">0</p>
+    </div>
+</div>
+<div class="flex-example">
+    <div>HTML</div>
+    <div>CSS</div>
+    <div>JavaScript</div>
+</div>
+<section id="profileSection" hidden>
+<h2>Developer Profile</h2>
+
+<div class="profile-card">
+    <img id="avatar" src="" alt="GitHub profile picture">
+
+    <div>
+        <h3 id="profileName"></h3>
+        <p id="profileUsername"></p>
+        <p id="profileBio"></p>
+        <p id="profileLocation"></p>
+
+        <a id="profileLink"
+           href="#"
+           target="_blank"
+           rel="noopener noreferrer">
+            View GitHub Profile
+        </a>
+    </div>
+</div>
+</section>
+<section id = "analyticsSection" hidden>
+<h2>Repository Analytics</h2>
+<div class="dashboard">
+    <div class="card">
+        <h3>Total Stars</h3>
+        <p id="totalStars">--</p>
+    </div>
+    <div class="card">
+        <h3>Total Forks</h3>
+        <p id="totalForks">--</p>
+    </div>
+    <div class="card">
+        <h3>Most-used Language</h3>
+        <p id="topLanguage">--</p>
+    </div>
+    <div class="card">
+    <h3>Recently Updated</h3>
+    <p id="latestRepo">--</p>
+    <div class="card">
+    <h3>Total Languages</h3>
+    <p id="totalLanguages">--</p>
+</div>
+<div class="card">
+    <h3>GitHub Account Age</h3>
+    <p id="accountAge">--</p>
+</div>
+</div>
+<div class="card">
+    <h3>Top Starred Repository</h3>
+    <p id="topStarRepo">--</p>
+</div>
+</div>
+<div class="chart-container">
+    <h3>Programming Language Distribution</h3>
+    <canvas id="languageChart"></canvas>
+</div>
+<h2>My GitHub Repositories</h2>
+<div class="repo-controls">
+    <input
+        type="text"
+        id="repoSearch"
+        placeholder="Search repositories..."
+    >
+    <select id="languageFilter">
+    <option value="all">All Languages</option>
+</select>
+    <select id="repoSort">
+        <option value="updated">Recently Updated</option>
+        <option value="stars">Most Stars</option>
+        <option value="forks">Most Forks</option>
+        <option value="name">Name (A–Z)</option>
+    </select>
+    </section>
+</div>
+<div id="repoList" class="repo-list">
+    <p>Search a GitHub username to see repositories.</p>
+</div>
+<button id="loadMoreBtn" hidden>
+    Load More
+</button>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="script.js" defer></script>
+    </body>
+</html>
