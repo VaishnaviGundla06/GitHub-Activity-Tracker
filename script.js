@@ -1,397 +1,558 @@
-
 const form = document.getElementById("searchForm");
 const usernameInput = document.getElementById("username");
 const message = document.getElementById("message");
+
 const repoCount = document.getElementById("repoCount");
 const followerCount = document.getElementById("followerCount");
 const followingCount = document.getElementById("followingCount");
 const gistCount = document.getElementById("gistCount");
+
 const loadingSpinner = document.getElementById("loadingSpinner");
-let languageChart = null;
-let chartObserver = null;
-let allRepositories = [];
+
+const developerStatistics =
+    document.querySelector(".developer-statistics");
+
+const profileSection =
+    document.getElementById("profileSection");
+
+const analyticsSection =
+    document.getElementById("analyticsSection");
+
 const repoSearch = document.getElementById("repoSearch");
 const repoSort = document.getElementById("repoSort");
 const languageFilter = document.getElementById("languageFilter");
 const loadMoreBtn = document.getElementById("loadMoreBtn");
 
+const repoList = document.getElementById("repoList");
+
+// ==============================
+// GLOBAL VARIABLES
+// ==============================
+
+let languageChart = null;
+let chartObserver = null;
+
+let allRepositories = [];
+let currentRepositories = [];
+
 let visibleRepoCount = 6;
-form.addEventListener("submit", function(event) {
+
+
+// ==============================
+// GITHUB PROFILE SEARCH
+// ==============================
+
+form.addEventListener("submit", async function(event) {
+
     event.preventDefault();
+
     const username = usernameInput.value.trim();
-    // Reset repository controls for the new search
-repoSearch.value = "";
-repoSort.value = "updated";
-languageFilter.value = "all";
-visibleRepoCount = 6;
-allRepositories = [];
-currentRepositories = [];
-loadMoreBtn.hidden = true;
-    if (!username) {
-        message.textContent = "Please enter a GitHub username.";
-        return;
-    }
-    message.textContent = "Fetching GitHub profile...";
-    loadingSpinner.hidden = false;
-    document.getElementById("profileSection").hidden = true;
-    document.getElementById("analyticsSection").hidden = true;
-    // Stop the previous chart observer
+
+    // Reset repository controls
+    repoSearch.value = "";
+    repoSort.value = "updated";
+    languageFilter.innerHTML =
+        '<option value="all">All Languages</option>';
+
+    visibleRepoCount = 6;
+
+    allRepositories = [];
+    currentRepositories = [];
+
+    loadMoreBtn.hidden = true;
+
+    // Hide previous search results
+    developerStatistics.hidden = true;
+    profileSection.hidden = true;
+    analyticsSection.hidden = true;
+
+    // Clear previous chart observer
     if (chartObserver) {
         chartObserver.disconnect();
         chartObserver = null;
     }
-    // Fetch GitHub profile
-    fetch(`https://api.github.com/users/${encodeURIComponent(username)}`)
 
-        .then(response => {
-    if (response.status === 404) {
-        throw new Error("GitHub user not found!");
-    }
-if (response.status === 403 || response.status === 429) {
-    const remainingRequests = response.headers.get("X-RateLimit-Remaining");
-
-    if (response.status === 429 || remainingRequests === "0") {
-        throw new Error("GitHub API rate limit exceeded. Please try again later.");
+    // Destroy previous chart
+    if (languageChart) {
+        languageChart.destroy();
+        languageChart = null;
     }
 
-    throw new Error("GitHub denied this request. Please try again later.");
-}
-    if (!response.ok) {
-        throw new Error("Something went wrong. Please try again.");
+    if (!username) {
+        message.textContent = "Please enter a GitHub username.";
+        return;
     }
 
-    return response.json();
-})
+    message.textContent = "Fetching GitHub profile...";
+    loadingSpinner.hidden = false;
 
-        .then(data => {
-            console.log(data);
-            // Calculate GitHub account age
-const createdDate = new Date(data.created_at);
+    try {
 
-const currentDate = new Date();
+        // ==============================
+        // FETCH GITHUB PROFILE
+        // ==============================
 
-let accountAge = currentDate.getFullYear() -
-    createdDate.getFullYear();
+        const profileResponse = await fetch(
+            `https://api.github.com/users/${encodeURIComponent(username)}`
+        );
 
-const monthDifference =
-    currentDate.getMonth() - createdDate.getMonth();
+        if (profileResponse.status === 404) {
+            throw new Error("GitHub user not found!");
+        }
 
-if (
-    monthDifference < 0 ||
-    (monthDifference === 0 &&
-        currentDate.getDate() < createdDate.getDate())
-) {
-    accountAge--;
-}
+        if (
+            profileResponse.status === 403 ||
+            profileResponse.status === 429
+        ) {
 
-document.getElementById("accountAge").textContent =
-    accountAge + " years";
+            const remainingRequests =
+                profileResponse.headers.get("X-RateLimit-Remaining");
 
-            // Update developer statistics
-            repoCount.textContent = data.public_repos;
-            followerCount.textContent = data.followers;
-            followingCount.textContent = data.following;
-            gistCount.textContent = data.public_gists;
+            if (
+                profileResponse.status === 429 ||
+                remainingRequests === "0"
+            ) {
+                throw new Error(
+                    "GitHub API rate limit exceeded. Please try again later."
+                );
+            }
 
-            // Update developer profile
-            document.getElementById("avatar").src = data.avatar_url;
-
-            document.getElementById("avatar").alt =
-                `${data.login}'s profile picture`;
-
-            document.getElementById("profileName").textContent =
-                data.name || data.login;
-
-            document.getElementById("profileUsername").textContent =
-                "@" + data.login;
-
-            document.getElementById("profileBio").textContent =
-                data.bio || "No bio provided.";
-
-            document.getElementById("profileLocation").textContent =
-                data.location || "Location not provided.";
-
-            const profileLink = document.getElementById("profileLink");
-            profileLink.href = data.html_url;
-
-            return fetch(
-                `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`
+            throw new Error(
+                "GitHub denied this request. Please try again later."
             );
-        })
+        }
 
-        // Fetch repositories
-       .then(response => {
+        if (!profileResponse.ok) {
+            throw new Error(
+                "Something went wrong. Please try again."
+            );
+        }
 
-    if (response.status === 403 || response.status === 429) {
-        throw new Error("GitHub API rate limit exceeded while loading repositories. Please try again later.");
-    }
+        const data = await profileResponse.json();
 
-    if (!response.ok) {
-        throw new Error("Unable to load repositories. Please try again.");
-    }
+        // ==============================
+        // CALCULATE ACCOUNT AGE
+        // ==============================
 
-    return response.json();
-})
+        const createdDate = new Date(data.created_at);
+        const currentDate = new Date();
 
-        .then(repositories => {
-            allRepositories = repositories;
-            // Populate programming language dropdown
-const languages = [
-    ...new Set(
-        repositories
-            .map(repo => repo.language)
-            .filter(language => language !== null)
-    )
-];
+        let accountAge =
+            currentDate.getFullYear() - createdDate.getFullYear();
 
-languageFilter.innerHTML = '<option value="all">All Languages</option>';
+        const monthDifference =
+            currentDate.getMonth() - createdDate.getMonth();
 
-languages.sort().forEach(language => {
+        if (
+            monthDifference < 0 ||
+            (
+                monthDifference === 0 &&
+                currentDate.getDate() < createdDate.getDate()
+            )
+        ) {
+            accountAge--;
+        }
 
-    const option = document.createElement("option");
+        document.getElementById("accountAge").textContent =
+            accountAge + " years";
 
-    option.value = language;
-    option.textContent = language;
+        // ==============================
+        // UPDATE DEVELOPER STATISTICS
+        // ==============================
 
-    languageFilter.appendChild(option);
+        repoCount.textContent = data.public_repos;
+        followerCount.textContent = data.followers;
+        followingCount.textContent = data.following;
+        gistCount.textContent = data.public_gists;
 
-});
-            // Find the most recently updated repository
-if (repositories.length > 0) {
+        // ==============================
+        // UPDATE DEVELOPER PROFILE
+        // ==============================
 
-    const latestRepository = repositories.reduce((latest, current) => {
+        document.getElementById("avatar").src = data.avatar_url;
 
-        return new Date(current.updated_at) >
-            new Date(latest.updated_at)
-            ? current
-            : latest;
+        document.getElementById("avatar").alt =
+            `${data.login}'s profile picture`;
 
-    });
+        document.getElementById("profileName").textContent =
+            data.name || data.login;
 
-    document.getElementById("latestRepo").textContent =
-        latestRepository.name;
+        document.getElementById("profileUsername").textContent =
+            "@" + data.login;
 
-} else {
+        document.getElementById("profileBio").textContent =
+            data.bio || "No bio provided.";
 
-    document.getElementById("latestRepo").textContent =
-        "No repositories";
+        document.getElementById("profileLocation").textContent =
+            data.location || "Location not provided.";
 
-}
-// Find the repository with the highest stars
-if (repositories.length > 0) {
+        const profileLink =
+            document.getElementById("profileLink");
 
-    const topStarRepository = repositories.reduce((highest, current) => {
+        profileLink.href = data.html_url;
 
-        return current.stargazers_count > highest.stargazers_count
-            ? current
-            : highest;
 
-    });
+        // ==============================
+        // FETCH GITHUB REPOSITORIES
+        // ==============================
 
-    document.getElementById("topStarRepo").textContent =
-        topStarRepository.name;
+        const repoResponse = await fetch(
+            `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`
+        );
 
-} else {
+        if (
+            repoResponse.status === 403 ||
+            repoResponse.status === 429
+        ) {
+            throw new Error(
+                "GitHub API rate limit exceeded while loading repositories. Please try again later."
+            );
+        }
 
-    document.getElementById("topStarRepo").textContent =
-        "No repositories";
+        if (!repoResponse.ok) {
+            throw new Error(
+                "Unable to load repositories. Please try again."
+            );
+        }
 
-}
+        const repositories = await repoResponse.json();
 
-            let totalStars = 0;
-            let totalForks = 0;
-            let languageCount = {};
+        allRepositories = repositories;
 
-            // Calculate repository statistics
-            repositories.forEach(repo => {
 
-                totalStars += repo.stargazers_count;
-                totalForks += repo.forks_count;
+        // ==============================
+        // POPULATE LANGUAGE FILTER
+        // ==============================
 
-                if (repo.language) {
-                    languageCount[repo.language] =
-                        (languageCount[repo.language] || 0) + 1;
+        const languages = [
+            ...new Set(
+                repositories
+                    .map(repo => repo.language)
+                    .filter(language => language !== null)
+            )
+        ];
+
+        languages.sort().forEach(language => {
+
+            const option = document.createElement("option");
+
+            option.value = language;
+            option.textContent = language;
+
+            languageFilter.appendChild(option);
+
+        });
+
+
+        // ==============================
+        // RECENTLY UPDATED REPOSITORY
+        // ==============================
+
+        if (repositories.length > 0) {
+
+            const latestRepository = repositories.reduce(
+                (latest, current) => {
+
+                    return new Date(current.updated_at) >
+                        new Date(latest.updated_at)
+                        ? current
+                        : latest;
+
+                }
+            );
+
+            document.getElementById("latestRepo").textContent =
+                latestRepository.name;
+
+        } else {
+
+            document.getElementById("latestRepo").textContent =
+                "No repositories";
+
+        }
+
+
+        // ==============================
+        // TOP STARRED REPOSITORY
+        // ==============================
+
+        if (repositories.length > 0) {
+
+            const topStarRepository = repositories.reduce(
+                (highest, current) => {
+
+                    return current.stargazers_count >
+                        highest.stargazers_count
+                        ? current
+                        : highest;
+
+                }
+            );
+
+            document.getElementById("topStarRepo").textContent =
+                topStarRepository.name;
+
+        } else {
+
+            document.getElementById("topStarRepo").textContent =
+                "No repositories";
+
+        }
+
+
+        // ==============================
+        // CALCULATE REPOSITORY ANALYTICS
+        // ==============================
+
+        let totalStars = 0;
+        let totalForks = 0;
+
+        const languageCount = {};
+
+        repositories.forEach(repo => {
+
+            totalStars += repo.stargazers_count;
+            totalForks += repo.forks_count;
+
+            if (repo.language) {
+
+                languageCount[repo.language] =
+                    (languageCount[repo.language] || 0) + 1;
+
+            }
+
+        });
+
+        const languageLabels = Object.keys(languageCount);
+        const languageValues = Object.values(languageCount);
+
+        document.getElementById("totalLanguages").textContent =
+            languageLabels.length;
+
+        document.getElementById("totalStars").textContent =
+            totalStars;
+
+        document.getElementById("totalForks").textContent =
+            totalForks;
+
+
+        // ==============================
+        // MOST-USED PROGRAMMING LANGUAGE
+        // ==============================
+
+        let topLanguage = "Not specified";
+
+        if (languageLabels.length > 0) {
+
+            topLanguage = languageLabels.reduce(
+                (mostUsed, current) => {
+
+                    return languageCount[current] >
+                        languageCount[mostUsed]
+                        ? current
+                        : mostUsed;
+
+                }
+            );
+
+        }
+
+        document.getElementById("topLanguage").textContent =
+            topLanguage;
+
+
+        // ==============================
+        // DISPLAY SEARCH RESULTS
+        // ==============================
+
+        developerStatistics.hidden = false;
+        profileSection.hidden = false;
+        analyticsSection.hidden = false;
+
+        displayRepositories(allRepositories);
+
+
+        // ==============================
+        // CREATE LANGUAGE CHART
+        // ==============================
+
+        const chartCanvas =
+            document.getElementById("languageChart");
+
+        if (languageLabels.length > 0) {
+
+            languageChart = new Chart(chartCanvas, {
+
+                type: "doughnut",
+
+                data: {
+
+                    labels: languageLabels,
+
+                    datasets: [{
+
+                        data: languageValues,
+
+                        backgroundColor: [
+                            "#f1e05a",
+                            "#3572A5",
+                            "#f34b7d",
+                            "#e34c26",
+                            "#563d7c",
+                            "#58a6ff"
+                        ],
+
+                        borderWidth: 2,
+                        borderColor: "#161b22"
+
+                    }]
+
+                },
+
+                options: {
+
+                    responsive: true,
+
+                    animation: false,
+
+                    plugins: {
+
+                        legend: {
+
+                            position: "bottom",
+
+                            labels: {
+                                color: "#c9d1d9"
+                            }
+
+                        },
+
+                        tooltip: {
+
+                            animation: {
+                                duration: 0
+                            },
+
+                            transition: {
+                                duration: 0
+                            },
+
+                            displayColors: true
+
+                        }
+
+                    },
+
+                    interaction: {
+                        mode: "nearest",
+                        intersect: true
+                    }
+
                 }
 
             });
 
-            // Prepare chart data
-            const languageLabels = Object.keys(languageCount);
-            const languageValues = Object.values(languageCount);
-            // Calculate total programming languages
-const totalLanguages = Object.keys(languageCount).length;
 
-document.getElementById("totalLanguages").textContent =
-    totalLanguages;
+            // ==============================
+            // CHART ANIMATION ON SCROLL
+            // ==============================
 
-            const chartCanvas = document.getElementById("languageChart");
+            const chartSection =
+                document.querySelector(".chart-container");
 
-            // Destroy previous chart
-            if (languageChart) {
-                languageChart.destroy();
-                languageChart = null;
-            }
+            if (chartSection) {
 
-            if (languageLabels.length > 0) {
-
-                // Show analytics section before creating the chart
-                document.getElementById("analyticsSection").hidden = false;
-
-                // Create doughnut chart without immediate animation
-                languageChart = new Chart(chartCanvas, {
-
-                    type: "doughnut",
-
-                    data: {
-                        labels: languageLabels,
-
-                        datasets: [{
-                            data: languageValues,
-
-                            backgroundColor: [
-                                "#f1e05a",
-                                "#3572A5",
-                                "#f34b7d",
-                                "#e34c26",
-                                "#563d7c",
-                                "#58a6ff"
-                            ],
-
-                            borderWidth: 2,
-                            borderColor: "#161b22"
-                        }]
-                    },
-
-                    options: {
-
-                        responsive: true,
-
-                        // Wait until the chart enters the screen
-                        animation: false,
-
-                       plugins: {
-    legend: {
-        position: "bottom",
-        labels: {
-            color: "#c9d1d9"
-        }
-    },
-    tooltip: {
-        animation: {
-            duration: 0
-        },
-        transition: {
-            duration: 0
-        },
-        displayColors: true
-    }
-},
-interaction: {
-    mode: "nearest",
-    intersect: true
-}
-                    }
-                });
-
-                // Observe when the chart becomes visible
-                const chartSection =
-                    document.querySelector(".chart-container");
-
-                if (chartSection) {
-
-                    chartObserver = new IntersectionObserver((entries) => {
+                chartObserver = new IntersectionObserver(
+                    (entries) => {
 
                         if (entries[0].isIntersecting) {
 
-                            // Start slow chart animation
                             languageChart.options.animation = {
+
                                 duration: 1800,
                                 easing: "easeOutQuart",
                                 animateRotate: true,
                                 animateScale: true
+
                             };
 
                             languageChart.reset();
                             languageChart.update();
 
-                            // Animate only once per profile search
                             chartObserver.disconnect();
                             chartObserver = null;
+
                         }
 
-                    }, {
+                    },
+                    {
                         threshold: 0.4
-                    });
+                    }
+                );
 
-                    chartObserver.observe(chartSection);
-                }
+                chartObserver.observe(chartSection);
+
             }
 
-            // Update repository analytics
-            document.getElementById("totalStars").textContent = totalStars;
-            document.getElementById("totalForks").textContent = totalForks;
+        }
 
-            let topLanguage = "Not specified";
 
-            for (let language in languageCount) {
+        // ==============================
+        // SEARCH SUCCESS MESSAGE
+        // ==============================
 
-                if (
-                    topLanguage === "Not specified" ||
-                    languageCount[language] > languageCount[topLanguage]
-                ) {
-                    topLanguage = language;
-                }
-            }
-
-            document.getElementById("topLanguage").textContent = topLanguage;
-
-            // Display repository cards
-            displayRepositories(allRepositories);
-
-            // Display profile and analytics sections
-            document.getElementById("profileSection").hidden = false;
-            document.getElementById("analyticsSection").hidden = false;
-            loadingSpinner.hidden = true;
-            message.textContent =
-                "GitHub profile and repositories loaded successfully!";
-
-        })
-
-        .catch(error => {
-    loadingSpinner.hidden = true;
-
-    if (error instanceof TypeError) {
         message.textContent =
-            "Network error. Please check your internet connection and try again.";
-    } else {
-        message.textContent = error.message;
+            "GitHub profile and repositories loaded successfully!";
+
     }
 
-    console.error(error);
-});
+    catch (error) {
+
+        if (error instanceof TypeError) {
+
+            message.textContent =
+                "Network error. Please check your internet connection and try again.";
+
+        } else {
+
+            message.textContent = error.message;
+
+        }
+
+        console.error(error);
+
+    }
+
+    finally {
+
+        loadingSpinner.hidden = true;
+
+    }
 
 });
-let currentRepositories = [];
+
+
+// ==============================
+// DISPLAY REPOSITORIES
+// ==============================
 
 function displayRepositories(repositories) {
 
-    const repoList = document.getElementById("repoList");
+    repoList.innerHTML = "";
 
     currentRepositories = repositories;
 
-    repoList.innerHTML = "";
-
-    // Display message if no repositories match
     if (repositories.length === 0) {
 
-        repoList.textContent = "No matching repositories found.";
+        repoList.textContent =
+            "No matching repositories found.";
 
         loadMoreBtn.hidden = true;
 
         return;
+
     }
 
-    // Display only the required number of repositories
     const visibleRepositories =
         repositories.slice(0, visibleRepoCount);
 
@@ -404,10 +565,12 @@ function displayRepositories(repositories) {
         title.textContent = repo.name;
 
         const description = document.createElement("p");
+
         description.textContent =
             repo.description || "No description provided.";
 
         const language = document.createElement("p");
+
         language.textContent =
             "Language: " + (repo.language || "Not specified");
 
@@ -418,11 +581,13 @@ function displayRepositories(repositories) {
         forks.textContent = "Forks: " + repo.forks_count;
 
         const updated = document.createElement("p");
+
         updated.textContent =
             "Last updated: " +
             new Date(repo.updated_at).toLocaleDateString();
 
         const link = document.createElement("a");
+
         link.textContent = "View on GitHub";
         link.href = repo.html_url;
         link.target = "_blank";
@@ -440,23 +605,28 @@ function displayRepositories(repositories) {
 
     });
 
-    // Show or hide Load More button
     loadMoreBtn.hidden =
         visibleRepoCount >= repositories.length;
 
 }
+
+
+// ==============================
+// FILTER AND SORT REPOSITORIES
+// ==============================
+
 function filterAndSortRepositories() {
 
-    const searchText = repoSearch.value.toLowerCase().trim();
+    const searchText =
+        repoSearch.value.toLowerCase().trim();
 
     const sortType = repoSort.value;
-
     const selectedLanguage = languageFilter.value;
 
-    // Filter repositories by name and language
     let filteredRepositories = allRepositories.filter(repo => {
 
-        const matchesSearch = repo.name.toLowerCase().includes(searchText);
+        const matchesSearch =
+            repo.name.toLowerCase().includes(searchText);
 
         const matchesLanguage =
             selectedLanguage === "all" ||
@@ -466,7 +636,9 @@ function filterAndSortRepositories() {
 
     });
 
-    // Sort repositories
+
+    // SORT REPOSITORIES
+
     if (sortType === "stars") {
 
         filteredRepositories.sort((a, b) =>
@@ -492,17 +664,38 @@ function filterAndSortRepositories() {
         );
 
     }
-visibleRepoCount = 6;
 
-displayRepositories(filteredRepositories);
+    visibleRepoCount = 6;
+
+    displayRepositories(filteredRepositories);
+
 }
 
-// Search when the user types
-repoSearch.addEventListener("input", filterAndSortRepositories);
 
-// Sort when the dropdown changes
-repoSort.addEventListener("change", filterAndSortRepositories);
-languageFilter.addEventListener("change", filterAndSortRepositories);
+// ==============================
+// REPOSITORY EVENT LISTENERS
+// ==============================
+
+repoSearch.addEventListener(
+    "input",
+    filterAndSortRepositories
+);
+
+repoSort.addEventListener(
+    "change",
+    filterAndSortRepositories
+);
+
+languageFilter.addEventListener(
+    "change",
+    filterAndSortRepositories
+);
+
+
+// ==============================
+// LOAD MORE REPOSITORIES
+// ==============================
+
 loadMoreBtn.addEventListener("click", function() {
 
     visibleRepoCount += 6;

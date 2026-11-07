@@ -21,9 +21,15 @@ Users can search for a GitHub username and view profile details, repository info
 - **Error Handling:** Handle invalid usernames, network failures, and API request errors.
 
 ## Screenshots
+<<<<<<< HEAD
 
 ![Profile and Analytics](screenshots/dashboard.png)
 
+=======
+### Profile and Analytics
+![Profile and Analytics](screenshots/dashboard.png)
+### Repository Explorer
+>>>>>>> 503c53b (Update dashboard layout and styling)
 ![Repository Explorer](screenshots/repositories.png)
 
 ## Technologies Used
