@@ -1,8 +1,3 @@
-
-/* ==============================
-   GENERAL PAGE STYLING
-================================ */
-
 body {
     background-color: #0d1117;
     color: white;
@@ -30,10 +25,6 @@ p {
     text-align: center;
 }
 
-/* ==============================
-   SEARCH FORM
-================================ */
-
 #searchForm {
     display: flex;
     align-items: center;
@@ -41,8 +32,7 @@ p {
     gap: 18px;
     flex-wrap: wrap;
     width: 100%;
-    margin-top: 35px;
-    margin-bottom: 45px;
+    margin: 35px 0 45px;
 }
 
 #searchForm label {
@@ -61,10 +51,6 @@ p {
     padding: 14px 24px;
 }
 
-/* ==============================
-   BUTTONS
-================================ */
-
 button {
     padding: 12px 20px;
     background-color: #238636;
@@ -78,10 +64,6 @@ button:hover {
     background-color: #2ea043;
 }
 
-/* ==============================
-   SEARCH MESSAGE
-================================ */
-
 #message {
     display: block;
     width: 100%;
@@ -89,9 +71,17 @@ button:hover {
     margin: 25px auto;
 }
 
-/* ==============================
-   DEVELOPER STATISTICS
-================================ */
+.developer-statistics > h2,
+#profileSection > h2,
+#analyticsSection > h2:first-of-type {
+    text-align: left;
+    font-size: 30px;
+    font-weight: 700;
+}
+
+#analyticsSection > h2:last-of-type {
+    text-align: center;
+}
 
 .dashboard {
     display: grid;
@@ -105,23 +95,37 @@ button:hover {
     border: 1px solid #30363d;
     padding: 20px;
     border-radius: 10px;
-    text-align: left;
+    box-sizing: border-box;
+    text-align: center;
 }
 
 .card h3 {
     color: #58a6ff;
     font-size: 18px;
+    text-align: center;
+    margin-top: 0;
 }
 
 .card p {
     color: white;
     font-size: 28px;
-    font-weight: bold;
+    font-weight: 400;
+    text-align: center;
+    overflow-wrap: anywhere;
 }
 
-/* ==============================
-   REPOSITORY ANALYTICS CIRCLES
-================================ */
+.developer-statistics .card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.developer-statistics .card h3,
+.developer-statistics .card p {
+    width: 100%;
+    text-align: center;
+}
 
 #analyticsSection .dashboard {
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -132,16 +136,39 @@ button:hover {
 #analyticsSection .card {
     width: 210px;
     height: 210px;
-    box-sizing: border-box;
-
+    padding: 20px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-
     border-radius: 50%;
-    padding: 18px;
+    overflow: hidden;
+    text-align: center;
     transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+#analyticsSection .card h3 {
+    width: 100%;
+    margin: 0 0 10px;
+    color: #58a6ff;
+    font-size: 17px;
+    line-height: 1.3;
+    text-align: center;
+}
+
+#analyticsSection .card p {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0 5px;
+    box-sizing: border-box;
+    color: white;
+    font-size: 17px;
+    font-weight: 400;
+    line-height: 1.3;
+    text-align: center;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 #analyticsSection .card:hover {
@@ -149,12 +176,9 @@ button:hover {
     border: 3px solid #f9fca5;
 }
 
-/* ==============================
-   FLEX EXAMPLE
-================================ */
-
 .flex-example {
     display: flex;
+    flex-wrap: wrap;
     gap: 15px;
     margin-top: 30px;
 }
@@ -164,10 +188,6 @@ button:hover {
     padding: 15px;
     border-radius: 6px;
 }
-
-/* ==============================
-   REPOSITORY LIST
-================================ */
 
 .repo-list {
     display: grid;
@@ -181,12 +201,7 @@ button:hover {
     border: 1px solid #30363d;
     border-radius: 12px;
     padding: 22px;
-
-    transition:
-        transform 0.2s ease,
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
-
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     will-change: transform;
 }
 
@@ -221,10 +236,6 @@ button:hover {
     color: #dce311;
 }
 
-/* ==============================
-   PROFILE CARD
-================================ */
-
 .profile-card {
     display: flex;
     align-items: center;
@@ -252,6 +263,7 @@ button:hover {
 .profile-card p {
     color: #c9d1d9;
     margin: 8px 0;
+    text-align: left;
 }
 
 .profile-card a {
@@ -265,9 +277,22 @@ button:hover {
     text-decoration: underline;
 }
 
-/* ==============================
-   CHART
-================================ */
+.repo-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.repo-controls input,
+.repo-controls select {
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+    background-color: #161b22;
+    color: white;
+}
 
 .chart-container {
     background-color: #161b22;
@@ -282,10 +307,6 @@ button:hover {
     color: #c9d1d9;
     margin-bottom: 20px;
 }
-
-/* ==============================
-   LOADING SPINNER
-================================ */
 
 #loadingSpinner {
     text-align: center;
@@ -317,12 +338,7 @@ button:hover {
     margin-top: 12px;
 }
 
-/* ==============================
-   MOBILE RESPONSIVENESS
-================================ */
-
 @media (max-width: 600px) {
-
     body {
         padding: 15px;
     }
@@ -340,8 +356,33 @@ button:hover {
         grid-template-columns: 1fr;
     }
 
-    .repo-list {
+    .developer-statistics .dashboard {
         grid-template-columns: 1fr;
+    }
+
+    .developer-statistics .card {
+        width: 100%;
+    }
+
+    #analyticsSection .dashboard {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    #analyticsSection .card {
+        width: min(155px, 100%);
+        height: auto;
+        aspect-ratio: 1;
+        padding: 12px;
+    }
+
+    #analyticsSection .card h3 {
+        font-size: 13px;
+        margin-bottom: 7px;
+    }
+
+    #analyticsSection .card p {
+        font-size: 14x;
     }
 
     .profile-card {
@@ -365,32 +406,8 @@ button:hover {
         box-sizing: border-box;
     }
 
-    #analyticsSection .dashboard {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-}
-
-#analyticsSection .card {
-    width: 155px;
-    height: 155px;
-}
     .chart-container {
         width: 100%;
         box-sizing: border-box;
     }
-}
-.developer-statistics h2,
-#analyticsSection h2,
-#repoSection h2 {
-    text-align: left;
-}
-.developer-statistics > h2,
-#profileSection > h2,
-#analyticsSection > h2,
-#repoSection > h2 {
-    font-size: 30px;
-    font-weight: 700;
-}
-#analyticsSection > h2:last-of-type {
-    text-align: center;
 }

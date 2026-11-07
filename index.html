@@ -1,8 +1,10 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub Activity Tracker</title>
+
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 </head>
@@ -35,7 +37,7 @@
     </form>
 
     <div class="message-container">
-        <p id="message"></p>
+        <p id="message" aria-live="polite"></p>
     </div>
 
     <div id="loadingSpinner" hidden>
@@ -71,7 +73,6 @@
         <h2>Developer Statistics</h2>
 
         <div class="dashboard">
-
             <div class="card">
                 <h3>Total Repositories</h3>
                 <p id="repoCount">0</p>
@@ -96,7 +97,6 @@
                 <h3>Public Gists</h3>
                 <p id="gistCount">0</p>
             </div>
-
         </div>
 
         <div class="flex-example">
@@ -107,11 +107,9 @@
     </div>
 
     <section id="analyticsSection" hidden>
-
         <h2>Repository Analytics</h2>
 
         <div class="dashboard">
-
             <div class="card">
                 <h3>Total Stars</h3>
                 <p id="totalStars">--</p>
@@ -146,7 +144,6 @@
                 <h3>Top Starred Repository</h3>
                 <p id="topStarRepo">--</p>
             </div>
-
         </div>
 
         <div class="chart-container">
@@ -161,20 +158,20 @@
                 type="text"
                 id="repoSearch"
                 placeholder="Search repositories..."
+                aria-label="Search repositories"
             >
 
-            <select id="languageFilter">
+            <select id="languageFilter" aria-label="Filter by programming language">
                 <option value="all">All Languages</option>
             </select>
 
-            <select id="repoSort">
+            <select id="repoSort" aria-label="Sort repositories">
                 <option value="updated">Recently Updated</option>
                 <option value="stars">Most Stars</option>
                 <option value="forks">Most Forks</option>
                 <option value="name">Name (A–Z)</option>
             </select>
         </div>
-
     </section>
 
     <div id="repoList" class="repo-list">
@@ -183,7 +180,7 @@
         </p>
     </div>
 
-    <button id="loadMoreBtn" hidden>
+    <button id="loadMoreBtn" type="button" hidden>
         Load More
     </button>
 

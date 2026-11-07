@@ -25,32 +25,79 @@ const loadMoreBtn = document.getElementById("loadMoreBtn");
 
 const repoList = document.getElementById("repoList");
 
-// ==============================
-// GLOBAL VARIABLES
-// ==============================
-
 let languageChart = null;
 let chartObserver = null;
 
 let allRepositories = [];
 let currentRepositories = [];
-
 let visibleRepoCount = 6;
 
+let searchController = null;
+let currentSearchId = 0;
 
-// ==============================
-// GITHUB PROFILE SEARCH
-// ==============================
 
-form.addEventListener("submit", async function(event) {
+// API REQUEST
 
-    event.preventDefault();
+async function fetchGitHubData(url, signal) {
 
-    const username = usernameInput.value.trim();
+    const response = await fetch(url, { signal });
 
-    // Reset repository controls
+    if (response.status === 404) {
+        throw new Error("GitHub user not found!");
+    }
+
+    if (response.status === 403 || response.status === 429) {
+
+        const remainingRequests =
+            response.headers.get("X-RateLimit-Remaining");
+
+        if (
+            response.status === 429 ||
+            remainingRequests === "0"
+        ) {
+            throw new Error(
+                "GitHub API rate limit exceeded. Please try again later."
+            );
+        }
+
+        throw new Error(
+            "GitHub denied this request. Please try again later."
+        );
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            "Unable to load GitHub data. Please try again."
+        );
+    }
+
+    return response.json();
+}
+
+
+// RESET CHART
+
+function resetChart() {
+
+    if (chartObserver) {
+        chartObserver.disconnect();
+        chartObserver = null;
+    }
+
+    if (languageChart) {
+        languageChart.destroy();
+        languageChart = null;
+    }
+}
+
+
+// RESET SEARCH RESULTS
+
+function resetSearchResults() {
+
     repoSearch.value = "";
     repoSort.value = "updated";
+
     languageFilter.innerHTML =
         '<option value="all">All Languages</option>';
 
@@ -61,25 +108,327 @@ form.addEventListener("submit", async function(event) {
 
     loadMoreBtn.hidden = true;
 
-    // Hide previous search results
     developerStatistics.hidden = true;
     profileSection.hidden = true;
     analyticsSection.hidden = true;
 
-    // Clear previous chart observer
-    if (chartObserver) {
-        chartObserver.disconnect();
-        chartObserver = null;
+    resetChart();
+}
+
+
+// ACCOUNT AGE
+
+function calculateAccountAge(createdAt) {
+
+    const createdDate = new Date(createdAt);
+    const currentDate = new Date();
+
+    let age =
+        currentDate.getFullYear() - createdDate.getFullYear();
+
+    const monthDifference =
+        currentDate.getMonth() - createdDate.getMonth();
+
+    if (
+        monthDifference < 0 ||
+        (
+            monthDifference === 0 &&
+            currentDate.getDate() < createdDate.getDate()
+        )
+    ) {
+        age--;
     }
 
-    // Destroy previous chart
-    if (languageChart) {
-        languageChart.destroy();
-        languageChart = null;
+    return age + " years";
+}
+
+
+// UPDATE PROFILE
+
+function updateProfile(data) {
+
+    document.getElementById("avatar").src = data.avatar_url;
+
+    document.getElementById("avatar").alt =
+        `${data.login}'s profile picture`;
+
+    document.getElementById("profileName").textContent =
+        data.name || data.login;
+
+    document.getElementById("profileUsername").textContent =
+        "@" + data.login;
+
+    document.getElementById("profileBio").textContent =
+        data.bio || "No bio provided.";
+
+    document.getElementById("profileLocation").textContent =
+        data.location || "Location not provided.";
+
+    document.getElementById("profileLink").href = data.html_url;
+
+    repoCount.textContent = data.public_repos;
+    followerCount.textContent = data.followers;
+    followingCount.textContent = data.following;
+    gistCount.textContent = data.public_gists;
+
+    document.getElementById("accountAge").textContent =
+        calculateAccountAge(data.created_at);
+}
+
+
+// UPDATE LANGUAGE FILTER
+
+function updateLanguageFilter(repositories) {
+
+    const languages = [
+        ...new Set(
+            repositories
+                .map(repo => repo.language)
+                .filter(Boolean)
+        )
+    ];
+
+    languages.sort().forEach(language => {
+
+        const option = document.createElement("option");
+
+        option.value = language;
+        option.textContent = language;
+
+        languageFilter.appendChild(option);
+
+    });
+}
+
+
+// UPDATE REPOSITORY ANALYTICS
+
+function updateRepositoryAnalytics(repositories) {
+
+    let totalStars = 0;
+    let totalForks = 0;
+
+    const languageCount = {};
+
+    repositories.forEach(repo => {
+
+        totalStars += repo.stargazers_count;
+        totalForks += repo.forks_count;
+
+        if (repo.language) {
+            languageCount[repo.language] =
+                (languageCount[repo.language] || 0) + 1;
+        }
+
+    });
+
+    const languageLabels = Object.keys(languageCount);
+    const languageValues = Object.values(languageCount);
+
+    document.getElementById("totalStars").textContent =
+        totalStars;
+
+    document.getElementById("totalForks").textContent =
+        totalForks;
+
+    document.getElementById("totalLanguages").textContent =
+        languageLabels.length;
+
+    const topLanguage = languageLabels.length
+        ? languageLabels.reduce((mostUsed, current) =>
+            languageCount[current] > languageCount[mostUsed]
+                ? current
+                : mostUsed
+        )
+        : "Not specified";
+
+    document.getElementById("topLanguage").textContent =
+        topLanguage;
+
+    if (repositories.length > 0) {
+
+        const latestRepository = repositories.reduce(
+            (latest, current) =>
+                new Date(current.updated_at) >
+                new Date(latest.updated_at)
+                    ? current
+                    : latest
+        );
+
+        const topStarRepository = repositories.reduce(
+            (highest, current) =>
+                current.stargazers_count >
+                highest.stargazers_count
+                    ? current
+                    : highest
+        );
+
+        document.getElementById("latestRepo").textContent =
+            latestRepository.name;
+
+        document.getElementById("topStarRepo").textContent =
+            topStarRepository.name;
+
+    } else {
+
+        document.getElementById("latestRepo").textContent =
+            "No repositories";
+
+        document.getElementById("topStarRepo").textContent =
+            "No repositories";
+
     }
+
+    return {
+        languageLabels,
+        languageValues
+    };
+}
+
+
+// CREATE LANGUAGE CHART
+
+function createLanguageChart(labels, values) {
+
+    if (labels.length === 0) {
+        return;
+    }
+
+    const chartCanvas =
+        document.getElementById("languageChart");
+
+    languageChart = new Chart(chartCanvas, {
+
+        type: "doughnut",
+
+        data: {
+
+            labels,
+
+            datasets: [{
+
+                data: values,
+
+                backgroundColor: [
+                    "#f1e05a",
+                    "#3572A5",
+                    "#f34b7d",
+                    "#e34c26",
+                    "#563d7c",
+                    "#58a6ff"
+                ],
+
+                borderWidth: 2,
+                borderColor: "#161b22"
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+            animation: false,
+
+            plugins: {
+
+                legend: {
+
+                    position: "bottom",
+
+                    labels: {
+                        color: "#c9d1d9"
+                    }
+
+                },
+
+                tooltip: {
+
+                    animation: {
+                        duration: 0
+                    },
+
+                    transition: {
+                        duration: 0
+                    },
+
+                    displayColors: true
+
+                }
+
+            },
+
+            interaction: {
+                mode: "nearest",
+                intersect: true
+            }
+
+        }
+
+    });
+
+    const chartSection =
+        document.querySelector(".chart-container");
+
+    if (!chartSection) {
+        return;
+    }
+
+    chartObserver = new IntersectionObserver(
+        entries => {
+
+            if (entries[0].isIntersecting && languageChart) {
+
+                languageChart.options.animation = {
+                    duration: 1800,
+                    easing: "easeOutQuart",
+                    animateRotate: true,
+                    animateScale: true
+                };
+
+                languageChart.reset();
+                languageChart.update();
+
+                chartObserver.disconnect();
+                chartObserver = null;
+
+            }
+
+        },
+        {
+            threshold: 0.4
+        }
+    );
+
+    chartObserver.observe(chartSection);
+}
+
+
+// GITHUB PROFILE SEARCH
+
+form.addEventListener("submit", async function(event) {
+
+    event.preventDefault();
+
+    const username = usernameInput.value.trim();
+
+    currentSearchId++;
+
+    const searchId = currentSearchId;
+
+    if (searchController) {
+        searchController.abort();
+    }
+
+    searchController = new AbortController();
+
+    const { signal } = searchController;
+
+    resetSearchResults();
 
     if (!username) {
-        message.textContent = "Please enter a GitHub username.";
+        message.textContent =
+            "Please enter a GitHub username.";
         return;
     }
 
@@ -88,282 +437,36 @@ form.addEventListener("submit", async function(event) {
 
     try {
 
-        // ==============================
-        // FETCH GITHUB PROFILE
-        // ==============================
+        const profileUrl =
+            `https://api.github.com/users/${encodeURIComponent(username)}`;
 
-        const profileResponse = await fetch(
-            `https://api.github.com/users/${encodeURIComponent(username)}`
+        const repositoriesUrl =
+            `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`;
+
+        const profileData = await fetchGitHubData(
+            profileUrl,
+            signal
         );
 
-        if (profileResponse.status === 404) {
-            throw new Error("GitHub user not found!");
-        }
-
-        if (
-            profileResponse.status === 403 ||
-            profileResponse.status === 429
-        ) {
-
-            const remainingRequests =
-                profileResponse.headers.get("X-RateLimit-Remaining");
-
-            if (
-                profileResponse.status === 429 ||
-                remainingRequests === "0"
-            ) {
-                throw new Error(
-                    "GitHub API rate limit exceeded. Please try again later."
-                );
-            }
-
-            throw new Error(
-                "GitHub denied this request. Please try again later."
-            );
-        }
-
-        if (!profileResponse.ok) {
-            throw new Error(
-                "Something went wrong. Please try again."
-            );
-        }
-
-        const data = await profileResponse.json();
-
-        // ==============================
-        // CALCULATE ACCOUNT AGE
-        // ==============================
-
-        const createdDate = new Date(data.created_at);
-        const currentDate = new Date();
-
-        let accountAge =
-            currentDate.getFullYear() - createdDate.getFullYear();
-
-        const monthDifference =
-            currentDate.getMonth() - createdDate.getMonth();
-
-        if (
-            monthDifference < 0 ||
-            (
-                monthDifference === 0 &&
-                currentDate.getDate() < createdDate.getDate()
-            )
-        ) {
-            accountAge--;
-        }
-
-        document.getElementById("accountAge").textContent =
-            accountAge + " years";
-
-        // ==============================
-        // UPDATE DEVELOPER STATISTICS
-        // ==============================
-
-        repoCount.textContent = data.public_repos;
-        followerCount.textContent = data.followers;
-        followingCount.textContent = data.following;
-        gistCount.textContent = data.public_gists;
-
-        // ==============================
-        // UPDATE DEVELOPER PROFILE
-        // ==============================
-
-        document.getElementById("avatar").src = data.avatar_url;
-
-        document.getElementById("avatar").alt =
-            `${data.login}'s profile picture`;
-
-        document.getElementById("profileName").textContent =
-            data.name || data.login;
-
-        document.getElementById("profileUsername").textContent =
-            "@" + data.login;
-
-        document.getElementById("profileBio").textContent =
-            data.bio || "No bio provided.";
-
-        document.getElementById("profileLocation").textContent =
-            data.location || "Location not provided.";
-
-        const profileLink =
-            document.getElementById("profileLink");
-
-        profileLink.href = data.html_url;
-
-
-        // ==============================
-        // FETCH GITHUB REPOSITORIES
-        // ==============================
-
-        const repoResponse = await fetch(
-            `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=100`
+        const repositories = await fetchGitHubData(
+            repositoriesUrl,
+            signal
         );
 
-        if (
-            repoResponse.status === 403 ||
-            repoResponse.status === 429
-        ) {
-            throw new Error(
-                "GitHub API rate limit exceeded while loading repositories. Please try again later."
-            );
+        if (searchId !== currentSearchId) {
+            return;
         }
 
-        if (!repoResponse.ok) {
-            throw new Error(
-                "Unable to load repositories. Please try again."
-            );
-        }
-
-        const repositories = await repoResponse.json();
+        updateProfile(profileData);
 
         allRepositories = repositories;
 
+        updateLanguageFilter(repositories);
 
-        // ==============================
-        // POPULATE LANGUAGE FILTER
-        // ==============================
-
-        const languages = [
-            ...new Set(
-                repositories
-                    .map(repo => repo.language)
-                    .filter(language => language !== null)
-            )
-        ];
-
-        languages.sort().forEach(language => {
-
-            const option = document.createElement("option");
-
-            option.value = language;
-            option.textContent = language;
-
-            languageFilter.appendChild(option);
-
-        });
-
-
-        // ==============================
-        // RECENTLY UPDATED REPOSITORY
-        // ==============================
-
-        if (repositories.length > 0) {
-
-            const latestRepository = repositories.reduce(
-                (latest, current) => {
-
-                    return new Date(current.updated_at) >
-                        new Date(latest.updated_at)
-                        ? current
-                        : latest;
-
-                }
-            );
-
-            document.getElementById("latestRepo").textContent =
-                latestRepository.name;
-
-        } else {
-
-            document.getElementById("latestRepo").textContent =
-                "No repositories";
-
-        }
-
-
-        // ==============================
-        // TOP STARRED REPOSITORY
-        // ==============================
-
-        if (repositories.length > 0) {
-
-            const topStarRepository = repositories.reduce(
-                (highest, current) => {
-
-                    return current.stargazers_count >
-                        highest.stargazers_count
-                        ? current
-                        : highest;
-
-                }
-            );
-
-            document.getElementById("topStarRepo").textContent =
-                topStarRepository.name;
-
-        } else {
-
-            document.getElementById("topStarRepo").textContent =
-                "No repositories";
-
-        }
-
-
-        // ==============================
-        // CALCULATE REPOSITORY ANALYTICS
-        // ==============================
-
-        let totalStars = 0;
-        let totalForks = 0;
-
-        const languageCount = {};
-
-        repositories.forEach(repo => {
-
-            totalStars += repo.stargazers_count;
-            totalForks += repo.forks_count;
-
-            if (repo.language) {
-
-                languageCount[repo.language] =
-                    (languageCount[repo.language] || 0) + 1;
-
-            }
-
-        });
-
-        const languageLabels = Object.keys(languageCount);
-        const languageValues = Object.values(languageCount);
-
-        document.getElementById("totalLanguages").textContent =
-            languageLabels.length;
-
-        document.getElementById("totalStars").textContent =
-            totalStars;
-
-        document.getElementById("totalForks").textContent =
-            totalForks;
-
-
-        // ==============================
-        // MOST-USED PROGRAMMING LANGUAGE
-        // ==============================
-
-        let topLanguage = "Not specified";
-
-        if (languageLabels.length > 0) {
-
-            topLanguage = languageLabels.reduce(
-                (mostUsed, current) => {
-
-                    return languageCount[current] >
-                        languageCount[mostUsed]
-                        ? current
-                        : mostUsed;
-
-                }
-            );
-
-        }
-
-        document.getElementById("topLanguage").textContent =
-            topLanguage;
-
-
-        // ==============================
-        // DISPLAY SEARCH RESULTS
-        // ==============================
+        const {
+            languageLabels,
+            languageValues
+        } = updateRepositoryAnalytics(repositories);
 
         developerStatistics.hidden = false;
         profileSection.hidden = false;
@@ -371,135 +474,10 @@ form.addEventListener("submit", async function(event) {
 
         displayRepositories(allRepositories);
 
-
-        // ==============================
-        // CREATE LANGUAGE CHART
-        // ==============================
-
-        const chartCanvas =
-            document.getElementById("languageChart");
-
-        if (languageLabels.length > 0) {
-
-            languageChart = new Chart(chartCanvas, {
-
-                type: "doughnut",
-
-                data: {
-
-                    labels: languageLabels,
-
-                    datasets: [{
-
-                        data: languageValues,
-
-                        backgroundColor: [
-                            "#f1e05a",
-                            "#3572A5",
-                            "#f34b7d",
-                            "#e34c26",
-                            "#563d7c",
-                            "#58a6ff"
-                        ],
-
-                        borderWidth: 2,
-                        borderColor: "#161b22"
-
-                    }]
-
-                },
-
-                options: {
-
-                    responsive: true,
-
-                    animation: false,
-
-                    plugins: {
-
-                        legend: {
-
-                            position: "bottom",
-
-                            labels: {
-                                color: "#c9d1d9"
-                            }
-
-                        },
-
-                        tooltip: {
-
-                            animation: {
-                                duration: 0
-                            },
-
-                            transition: {
-                                duration: 0
-                            },
-
-                            displayColors: true
-
-                        }
-
-                    },
-
-                    interaction: {
-                        mode: "nearest",
-                        intersect: true
-                    }
-
-                }
-
-            });
-
-
-            // ==============================
-            // CHART ANIMATION ON SCROLL
-            // ==============================
-
-            const chartSection =
-                document.querySelector(".chart-container");
-
-            if (chartSection) {
-
-                chartObserver = new IntersectionObserver(
-                    (entries) => {
-
-                        if (entries[0].isIntersecting) {
-
-                            languageChart.options.animation = {
-
-                                duration: 1800,
-                                easing: "easeOutQuart",
-                                animateRotate: true,
-                                animateScale: true
-
-                            };
-
-                            languageChart.reset();
-                            languageChart.update();
-
-                            chartObserver.disconnect();
-                            chartObserver = null;
-
-                        }
-
-                    },
-                    {
-                        threshold: 0.4
-                    }
-                );
-
-                chartObserver.observe(chartSection);
-
-            }
-
-        }
-
-
-        // ==============================
-        // SEARCH SUCCESS MESSAGE
-        // ==============================
+        createLanguageChart(
+            languageLabels,
+            languageValues
+        );
 
         message.textContent =
             "GitHub profile and repositories loaded successfully!";
@@ -507,6 +485,14 @@ form.addEventListener("submit", async function(event) {
     }
 
     catch (error) {
+
+        if (searchId !== currentSearchId) {
+            return;
+        }
+
+        if (error.name === "AbortError") {
+            return;
+        }
 
         if (error instanceof TypeError) {
 
@@ -525,16 +511,16 @@ form.addEventListener("submit", async function(event) {
 
     finally {
 
-        loadingSpinner.hidden = true;
+        if (searchId === currentSearchId) {
+            loadingSpinner.hidden = true;
+        }
 
     }
 
 });
 
 
-// ==============================
 // DISPLAY REPOSITORIES
-// ==============================
 
 function displayRepositories(repositories) {
 
@@ -550,7 +536,6 @@ function displayRepositories(repositories) {
         loadMoreBtn.hidden = true;
 
         return;
-
     }
 
     const visibleRepositories =
@@ -593,13 +578,15 @@ function displayRepositories(repositories) {
         link.target = "_blank";
         link.rel = "noopener noreferrer";
 
-        card.appendChild(title);
-        card.appendChild(description);
-        card.appendChild(language);
-        card.appendChild(stars);
-        card.appendChild(forks);
-        card.appendChild(updated);
-        card.appendChild(link);
+        card.append(
+            title,
+            description,
+            language,
+            stars,
+            forks,
+            updated,
+            link
+        );
 
         repoList.appendChild(card);
 
@@ -611,9 +598,7 @@ function displayRepositories(repositories) {
 }
 
 
-// ==============================
 // FILTER AND SORT REPOSITORIES
-// ==============================
 
 function filterAndSortRepositories() {
 
@@ -635,9 +620,6 @@ function filterAndSortRepositories() {
         return matchesSearch && matchesLanguage;
 
     });
-
-
-    // SORT REPOSITORIES
 
     if (sortType === "stars") {
 
@@ -672,9 +654,7 @@ function filterAndSortRepositories() {
 }
 
 
-// ==============================
 // REPOSITORY EVENT LISTENERS
-// ==============================
 
 repoSearch.addEventListener(
     "input",
@@ -692,9 +672,7 @@ languageFilter.addEventListener(
 );
 
 
-// ==============================
 // LOAD MORE REPOSITORIES
-// ==============================
 
 loadMoreBtn.addEventListener("click", function() {
 
