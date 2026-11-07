@@ -22,10 +22,8 @@ Users can search for a GitHub username and view profile details, repository info
 
 ## Screenshots
 
-### Profile and Analytics
 ![Profile and Analytics](screenshots/dashboard.png)
 
-### Repository Explorer
 ![Repository Explorer](screenshots/repositories.png)
 
 ## Technologies Used
